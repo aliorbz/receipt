@@ -4,12 +4,16 @@ import type { AppPage, UserProfile } from '../../types';
 interface NavbarProps {
   currentPage: AppPage;
   selectedTaskId: string | null;
-  walletConnected: boolean;
+  isConnected: boolean;
+  isConnecting: boolean;
+  shortAddress: string | null;
+  isCorrectNetwork: boolean;
   isProfileMenuOpen: boolean;
   userProfile: UserProfile;
   onNavigate: (page: AppPage) => void;
   onConnectWallet: () => void;
   onDisconnectWallet: () => void;
+  onSwitchNetwork: () => void;
   onToggleProfileMenu: () => void;
   onCloseProfileMenu: () => void;
 }
@@ -17,12 +21,16 @@ interface NavbarProps {
 export function Navbar({
   currentPage,
   selectedTaskId,
-  walletConnected,
+  isConnected,
+  isConnecting,
+  shortAddress,
+  isCorrectNetwork,
   isProfileMenuOpen,
   userProfile,
   onNavigate,
   onConnectWallet,
   onDisconnectWallet,
+  onSwitchNetwork,
   onToggleProfileMenu,
   onCloseProfileMenu,
 }: NavbarProps) {
@@ -43,7 +51,7 @@ export function Navbar({
       <nav className="flex items-center gap-4.5 sm:gap-6 text-[13px] sm:text-xs font-semibold text-[#6B7280]">
         <button
           onClick={() => {
-            if (!walletConnected) {
+            if (!isConnected) {
               onConnectWallet();
             } else {
               onNavigate('board');
@@ -59,7 +67,7 @@ export function Navbar({
         </button>
         <button
           onClick={() => {
-            if (!walletConnected) {
+            if (!isConnected) {
               onConnectWallet();
             } else {
               onNavigate('profile');
@@ -76,36 +84,50 @@ export function Navbar({
       </nav>
 
       <div className="flex items-center gap-2.5 sm:gap-4 relative">
-        {!walletConnected ? (
+        {!isConnected ? (
           <button
             onClick={onConnectWallet}
+            disabled={isConnecting}
             className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 sm:px-4 sm:py-2 bg-black hover:bg-black/95 text-white text-[12px] sm:text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs active:scale-98"
           >
             <Wallet className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Connect Wallet</span>
-            <span className="sm:hidden">Wallet</span>
+            <span className="hidden sm:inline">{isConnecting ? 'Connecting...' : 'Connect Wallet'}</span>
+            <span className="sm:hidden">{isConnecting ? '...' : 'Wallet'}</span>
           </button>
         ) : (
-          <button
-            onClick={onToggleProfileMenu}
-            className="flex items-center gap-2 group text-left cursor-pointer"
-          >
-            <div className="text-right hidden sm:block">
-              <p className="text-xs font-bold text-[#111827] group-hover:text-[#4F46E5] transition-colors">
-                {userProfile.username}
-              </p>
-            </div>
-            <div className="w-8 h-8 rounded-full border border-[#E5E7EB] bg-gray-100 flex items-center justify-center font-bold text-xs text-[#4F46E5] group-hover:border-[#4F46E5] transition-colors overflow-hidden">
-              <img
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
-            </div>
-          </button>
+          <>
+            {!isCorrectNetwork && (
+              <button
+                onClick={onSwitchNetwork}
+                className="hidden sm:inline-flex items-center justify-center px-3 py-1.5 bg-[#4F46E5] hover:bg-[#4F46E5]/90 text-white text-[11px] font-bold rounded-lg transition-colors cursor-pointer"
+              >
+                Switch Network
+              </button>
+            )}
+            <button
+              onClick={onToggleProfileMenu}
+              className="flex items-center gap-2 group text-left cursor-pointer"
+            >
+              <div className="text-right hidden sm:block">
+                <p className="text-xs font-bold text-[#111827] group-hover:text-[#4F46E5] transition-colors">
+                  {shortAddress || userProfile.username}
+                </p>
+                {!isCorrectNetwork && (
+                  <p className="text-[9px] font-semibold text-[#F59E0B]">Wrong network</p>
+                )}
+              </div>
+              <div className="w-8 h-8 rounded-full border border-[#E5E7EB] bg-gray-100 flex items-center justify-center font-bold text-xs text-[#4F46E5] group-hover:border-[#4F46E5] transition-colors overflow-hidden">
+                <img
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </button>
+          </>
         )}
 
-        {isProfileMenuOpen && walletConnected && (
+        {isProfileMenuOpen && isConnected && (
           <div className="absolute right-0 top-full mt-2 w-72 bg-white border border-[#E5E7EB] rounded-2xl shadow-xl p-5 z-40 animate-fade-in">
             <div className="flex items-center justify-between pb-2 border-b border-[#E5E7EB] mb-3">
               <span className="text-[9px] font-bold text-[#6B7280] uppercase tracking-wider">Account Workspace</span>
@@ -129,6 +151,17 @@ export function Navbar({
                 <p className="text-xs font-extrabold text-[#111827] truncate">
                   {userProfile.username}
                 </p>
+                <p className="text-[10px] font-mono text-[#6B7280] truncate">
+                  {shortAddress}
+                </p>
+                {!isCorrectNetwork && (
+                  <button
+                    onClick={onSwitchNetwork}
+                    className="mt-2 px-2.5 py-1 bg-[#4F46E5] hover:bg-[#4F46E5]/90 text-white text-[10px] font-bold rounded-md transition-colors"
+                  >
+                    Switch Network
+                  </button>
+                )}
               </div>
             </div>
 

@@ -8,6 +8,8 @@ interface ProfileScreenProps {
   tasks: Task[];
   userProfile: UserProfile;
   currentUserAddress: string;
+  walletShortAddress: string | null;
+  isCorrectNetwork: boolean;
   isLoading: boolean;
   onViewTask: (taskId: string) => void;
 }
@@ -16,6 +18,8 @@ export function ProfileScreen({
   tasks,
   userProfile,
   currentUserAddress,
+  walletShortAddress,
+  isCorrectNetwork,
   isLoading,
   onViewTask,
 }: ProfileScreenProps) {
@@ -60,9 +64,15 @@ export function ProfileScreen({
               <h2 className="text-lg font-bold text-[#111827]">
                 {userProfile.username}
               </h2>
+              <span className="text-[9px] font-mono font-semibold text-[#6B7280] bg-gray-100 px-2 py-0.5 rounded-full">
+                Temporary profile
+              </span>
             </div>
             <p className="text-xs font-mono text-[#6B7280]">
               Address: {userProfile.address}
+            </p>
+            <p className="text-[10px] font-mono text-[#6B7280]">
+              Wallet: {walletShortAddress || 'Not connected'}{isCorrectNetwork ? '' : ' - Switch to Bradbury'}
             </p>
             <p className="text-xs text-[#6B7280] max-w-lg leading-relaxed pt-1">
               {userProfile.bio}

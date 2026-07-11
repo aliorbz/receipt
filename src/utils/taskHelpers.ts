@@ -1,4 +1,5 @@
 import type { Task, TaskStatus } from '../types';
+import { addressesEqual } from '../services/walletService';
 
 export function getAvailableTasks(tasks: Task[]) {
   return tasks.filter(task => task.status === 'Available' || task.status === 'Needs Revision');
@@ -8,30 +9,30 @@ export function getConnectedTasks(tasks: Task[], currentUserAddress: string) {
   return tasks.filter(
     task =>
       task.status !== 'Available' &&
-      (task.acceptedBy === currentUserAddress || task.publisherAddress === currentUserAddress),
+      (addressesEqual(task.acceptedBy, currentUserAddress) || addressesEqual(task.publisherAddress, currentUserAddress)),
   );
 }
 
 export function getRecentReceipts(tasks: Task[], currentUserAddress: string) {
   return tasks
-    .filter(task => task.acceptedBy === currentUserAddress || task.publisherAddress === currentUserAddress)
+    .filter(task => addressesEqual(task.acceptedBy, currentUserAddress) || addressesEqual(task.publisherAddress, currentUserAddress))
     .slice(-5)
     .reverse();
 }
 
 export function getProfileAcceptedTasks(tasks: Task[], currentUserAddress: string) {
-  return tasks.filter(task => task.acceptedBy === currentUserAddress && task.status !== 'Completed');
+  return tasks.filter(task => addressesEqual(task.acceptedBy, currentUserAddress) && task.status !== 'Completed');
 }
 
 export function getProfilePublishedTasks(tasks: Task[], currentUserAddress: string) {
-  return tasks.filter(task => task.publisherAddress === currentUserAddress);
+  return tasks.filter(task => addressesEqual(task.publisherAddress, currentUserAddress));
 }
 
 export function getProfileCompletedTasks(tasks: Task[], currentUserAddress: string) {
   return tasks.filter(
     task =>
       task.status === 'Completed' &&
-      (task.acceptedBy === currentUserAddress || task.publisherAddress === currentUserAddress),
+      (addressesEqual(task.acceptedBy, currentUserAddress) || addressesEqual(task.publisherAddress, currentUserAddress)),
   );
 }
 

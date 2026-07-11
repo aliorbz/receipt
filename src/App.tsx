@@ -1,11 +1,12 @@
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { LoadingOverlay } from './components/feedback/LoadingOverlay';
 import { Toast } from './components/feedback/Toast';
 import { FooterNav } from './components/layout/FooterNav';
 import { Navbar } from './components/layout/Navbar';
 import { PublishTaskModal } from './components/modals/PublishTaskModal';
 import { CURRENT_USER_ADDRESS, INITIAL_TASKS_LIST, INITIAL_USER_PROFILE } from './data/mockData';
+import { useWallet } from './hooks/useWallet';
 import { LandingScreen } from './screens/LandingScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { TaskBoardScreen } from './screens/TaskBoardScreen';
@@ -19,6 +20,7 @@ import type {
   ToastType,
   UserProfile,
 } from './types';
+import { addressesEqual } from './services/walletService';
 
 const DEFAULT_PUBLISH_FORM: PublishTaskFormState = {
   title: '',
@@ -37,9 +39,9 @@ const DEFAULT_SUBMIT_FORM: SubmitWorkFormState = {
 };
 
 export default function App() {
+  const wallet = useWallet();
   const [currentPage, setCurrentPage] = useState<AppPage>('landing');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [walletConnected, setWalletConnected] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
   const [tasks, setTasks] = useState<Task[]>(INITIAL_TASKS_LIST);
@@ -52,7 +54,11 @@ export default function App() {
   const [isBoardLoading, setIsBoardLoading] = useState(false);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const [isSubmitFormOpen, setIsSubmitFormOpen] = useState(false);
+  const activeIdentityAddressRef = useRef(CURRENT_USER_ADDRESS);
+  const previousWalletAddressRef = useRef<string | null>(null);
+  const previousChainIdRef = useRef<number | null>(null);
 
+  const currentUserAddress = wallet.address ?? activeIdentityAddressRef.current;
   const selectedTask = tasks.find(task => task.id === selectedTaskId);
 
   useEffect(() => {
@@ -65,6 +71,48 @@ export default function App() {
   const triggerToast = (text: string, type: ToastType = 'info') => {
     setToastMessage({ text, type });
   };
+
+  useEffect(() => {
+    if (!wallet.address) return;
+
+    const previousAddress = activeIdentityAddressRef.current;
+    activeIdentityAddressRef.current = wallet.address;
+
+    setUserProfile(prev => ({
+      ...prev,
+      address: wallet.address!,
+    }));
+
+    setTasks(prev =>
+      prev.map(task => ({
+        ...task,
+        publisherAddress: addressesEqual(task.publisherAddress, previousAddress) ? wallet.address! : task.publisherAddress,
+        acceptedBy: addressesEqual(task.acceptedBy, previousAddress) ? wallet.address! : task.acceptedBy,
+      })),
+    );
+  }, [wallet.address]);
+
+  useEffect(() => {
+    const previousAddress = previousWalletAddressRef.current;
+    if (previousAddress && !wallet.address) {
+      triggerToast('Wallet account is no longer available. Receipt was disconnected for this session.', 'warning');
+    } else if (previousAddress && wallet.address && !addressesEqual(previousAddress, wallet.address)) {
+      triggerToast('Wallet account changed.', 'info');
+    }
+    previousWalletAddressRef.current = wallet.address;
+  }, [wallet.address]);
+
+  useEffect(() => {
+    const previousChainId = previousChainIdRef.current;
+    if (wallet.isConnected && previousChainId !== null && wallet.chainId !== previousChainId) {
+      if (wallet.isCorrectNetwork) {
+        triggerToast('Wallet is on GenLayer Bradbury Testnet.', 'success');
+      } else {
+        triggerToast('Wallet is connected to a different network. Switch to Bradbury before onchain actions.', 'warning');
+      }
+    }
+    previousChainIdRef.current = wallet.chainId;
+  }, [wallet.chainId, wallet.isConnected, wallet.isCorrectNetwork]);
 
   const navigateToPage = (page: AppPage) => {
     setSelectedTaskId(null);
@@ -94,20 +142,36 @@ export default function App() {
     setIsProfileMenuOpen(false);
   };
 
-  const handleConnectWallet = () => {
+  const handleConnectWallet = async () => {
     setLoadingAction('Connecting secure wallet...');
-    setTimeout(() => {
-      setWalletConnected(true);
+    try {
+      await wallet.connect();
       setCurrentPage('board');
+      triggerToast('Wallet connected.', 'success');
+    } catch (error) {
+      triggerToast(error instanceof Error ? error.message : 'Unable to connect wallet.', 'warning');
+    } finally {
       setLoadingAction(null);
-      triggerToast('Wallet connected: 0x0011...abef', 'success');
-    }, 1200);
+    }
   };
 
   const handleDisconnectWallet = () => {
-    setWalletConnected(false);
+    wallet.disconnectSession();
     setCurrentPage('landing');
-    triggerToast('Wallet disconnected', 'info');
+    setIsProfileMenuOpen(false);
+    triggerToast('Receipt disconnected for this app session. Wallet permissions were not revoked.', 'info');
+  };
+
+  const handleSwitchNetwork = async () => {
+    setLoadingAction('Switching to GenLayer Bradbury...');
+    try {
+      await wallet.switchToBradbury();
+      triggerToast('Switched to GenLayer Bradbury Testnet.', 'success');
+    } catch (error) {
+      triggerToast(error instanceof Error ? error.message : 'Unable to switch network.', 'warning');
+    } finally {
+      setLoadingAction(null);
+    }
   };
 
   const handlePublishTask = (event: React.FormEvent) => {
@@ -136,7 +200,7 @@ export default function App() {
         reward: publishForm.reward,
         deadline: publishForm.deadline,
         publisher: 'You (@satoshi)',
-        publisherAddress: CURRENT_USER_ADDRESS,
+        publisherAddress: currentUserAddress,
         status: 'Available',
         acceptedBy: null,
         submission: null,
@@ -157,7 +221,7 @@ export default function App() {
     const task = tasks.find(item => item.id === taskId);
     if (!task) return;
 
-    if (task.publisherAddress === CURRENT_USER_ADDRESS) {
+    if (addressesEqual(task.publisherAddress, currentUserAddress)) {
       triggerToast('You cannot accept your own task', 'warning');
       return;
     }
@@ -170,7 +234,7 @@ export default function App() {
             ? {
                 ...item,
                 status: 'Accepted',
-                acceptedBy: CURRENT_USER_ADDRESS,
+                acceptedBy: currentUserAddress,
               }
             : item,
         ),
@@ -319,12 +383,16 @@ export default function App() {
       <Navbar
         currentPage={currentPage}
         selectedTaskId={selectedTaskId}
-        walletConnected={walletConnected}
+        isConnected={wallet.isConnected}
+        isConnecting={wallet.isConnecting}
+        shortAddress={wallet.shortAddress}
+        isCorrectNetwork={wallet.isCorrectNetwork}
         isProfileMenuOpen={isProfileMenuOpen}
         userProfile={userProfile}
         onNavigate={navigateToPage}
         onConnectWallet={handleConnectWallet}
         onDisconnectWallet={handleDisconnectWallet}
+        onSwitchNetwork={handleSwitchNetwork}
         onToggleProfileMenu={() => setIsProfileMenuOpen(prev => !prev)}
         onCloseProfileMenu={() => setIsProfileMenuOpen(false)}
       />
@@ -332,7 +400,8 @@ export default function App() {
       <main className="flex-1 flex flex-col">
         {currentPage === 'landing' && (
           <LandingScreen
-            walletConnected={walletConnected}
+            walletConnected={wallet.isConnected}
+            isConnecting={wallet.isConnecting}
             onConnectWallet={handleConnectWallet}
             onExploreTasks={() => setCurrentPage('board')}
           />
@@ -341,7 +410,7 @@ export default function App() {
         {currentPage === 'board' && (
           <TaskBoardScreen
             tasks={tasks}
-            currentUserAddress={CURRENT_USER_ADDRESS}
+            currentUserAddress={currentUserAddress}
             isLoading={isBoardLoading}
             onOpenPublishModal={() => setIsPublishModalOpen(true)}
             onViewTask={viewTask}
@@ -351,7 +420,7 @@ export default function App() {
         {currentPage === 'detail' && selectedTask && (
           <TaskDetailScreen
             task={selectedTask}
-            currentUserAddress={CURRENT_USER_ADDRESS}
+            currentUserAddress={currentUserAddress}
             isSubmitFormOpen={isSubmitFormOpen}
             submitForm={submitForm}
             onBackToBoard={() => {
@@ -376,7 +445,9 @@ export default function App() {
           <ProfileScreen
             tasks={tasks}
             userProfile={userProfile}
-            currentUserAddress={CURRENT_USER_ADDRESS}
+            currentUserAddress={currentUserAddress}
+            walletShortAddress={wallet.shortAddress}
+            isCorrectNetwork={wallet.isCorrectNetwork}
             isLoading={isProfileLoading}
             onViewTask={viewTask}
           />
@@ -384,7 +455,7 @@ export default function App() {
       </main>
 
       <FooterNav
-        show={currentPage !== 'landing' && walletConnected}
+        show={currentPage !== 'landing' && wallet.isConnected}
         onGoToBoard={() => {
           setCurrentPage('board');
           setSelectedTaskId(null);

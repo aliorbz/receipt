@@ -2,11 +2,12 @@ import { ChevronRight } from 'lucide-react';
 
 interface LandingScreenProps {
   walletConnected: boolean;
+  isConnecting: boolean;
   onConnectWallet: () => void;
   onExploreTasks: () => void;
 }
 
-export function LandingScreen({ walletConnected, onConnectWallet, onExploreTasks }: LandingScreenProps) {
+export function LandingScreen({ walletConnected, isConnecting, onConnectWallet, onExploreTasks }: LandingScreenProps) {
   return (
     <div className="flex-1 flex flex-col items-center justify-center px-6 py-20">
       <div className="max-w-xl w-full text-center space-y-10 animate-fade-in">
@@ -34,9 +35,10 @@ export function LandingScreen({ walletConnected, onConnectWallet, onExploreTasks
         <div className="pt-2">
           <button
             onClick={walletConnected ? onExploreTasks : onConnectWallet}
+            disabled={isConnecting}
             className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-black hover:bg-black/90 text-white font-semibold rounded-xl text-xs tracking-wide uppercase transition-all shadow-md active:scale-98 cursor-pointer"
           >
-            {walletConnected ? 'Explore Taskboard' : 'Get Started'}
+            {walletConnected ? 'Explore Taskboard' : isConnecting ? 'Connecting...' : 'Get Started'}
             <ChevronRight className="w-4 h-4 text-white" />
           </button>
         </div>

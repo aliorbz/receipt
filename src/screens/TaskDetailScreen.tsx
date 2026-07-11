@@ -1,6 +1,7 @@
 import type React from 'react';
 import { ArrowLeft, Check, CheckCircle2, ExternalLink } from 'lucide-react';
 import { SubmissionForm } from '../components/tasks/SubmissionForm';
+import { addressesEqual } from '../services/walletService';
 import type { SubmitWorkFormState, Task } from '../types';
 import { formatShortAddress, getStatusLabel, getTimelineStepIndex } from '../utils/taskHelpers';
 
@@ -215,7 +216,7 @@ export function TaskDetailScreen({
         <div className="pt-4 border-t border-[#E5E7EB]">
           {task.status === 'Available' && (
             <div className="space-y-3">
-              {task.publisherAddress === currentUserAddress ? (
+              {addressesEqual(task.publisherAddress, currentUserAddress) ? (
                 <div className="bg-[#F59E0B]/5 border border-[#F59E0B]/20 p-4 rounded-xl text-center">
                   <p className="text-xs text-[#F59E0B] font-semibold">
                     You published this task. Clients must not accept their own tasks.
@@ -232,7 +233,7 @@ export function TaskDetailScreen({
             </div>
           )}
 
-          {task.status === 'Accepted' && task.acceptedBy === currentUserAddress && (
+          {task.status === 'Accepted' && addressesEqual(task.acceptedBy, currentUserAddress) && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button
@@ -255,7 +256,7 @@ export function TaskDetailScreen({
             </div>
           )}
 
-          {task.status === 'Waiting for Client Review' && task.publisherAddress === currentUserAddress && (
+          {task.status === 'Waiting for Client Review' && addressesEqual(task.publisherAddress, currentUserAddress) && (
             <div className="space-y-4 bg-[#FAFAFA] p-5 border border-[#E5E7EB] rounded-xl text-center">
               <div>
                 <p className="text-xs font-bold text-[#111827]">Review this Contributor Submission</p>
@@ -278,7 +279,7 @@ export function TaskDetailScreen({
             </div>
           )}
 
-          {task.acceptedBy === currentUserAddress && task.status !== 'Accepted' && (
+          {addressesEqual(task.acceptedBy, currentUserAddress) && task.status !== 'Accepted' && (
             <div className="bg-[#FAFAFA] border border-[#E5E7EB] p-5 rounded-xl space-y-2">
               <p className="text-xs font-medium text-[#6B7280] text-center">Your Submission Status:</p>
               <div className="flex items-center justify-center gap-2">

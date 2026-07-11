@@ -76,3 +76,32 @@ export interface SubmitWorkFormState {
   screenshotName: string | null;
   isDragging: boolean;
 }
+
+export interface Eip1193Provider {
+  request: <T = unknown>(args: { method: string; params?: unknown[] | Record<string, unknown> }) => Promise<T>;
+  on?: (event: 'accountsChanged' | 'chainChanged', handler: (...args: unknown[]) => void) => void;
+  removeListener?: (event: 'accountsChanged' | 'chainChanged', handler: (...args: unknown[]) => void) => void;
+}
+
+export interface WalletState {
+  providerAvailable: boolean;
+  address: string | null;
+  shortAddress: string | null;
+  chainId: number | null;
+  isConnected: boolean;
+  isConnecting: boolean;
+  isCorrectNetwork: boolean;
+  error: string | null;
+}
+
+export interface WalletHookState extends WalletState {
+  connect: () => Promise<void>;
+  disconnectSession: () => void;
+  switchToBradbury: () => Promise<void>;
+}
+
+declare global {
+  interface Window {
+    ethereum?: Eip1193Provider;
+  }
+}

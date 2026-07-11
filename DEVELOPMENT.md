@@ -7,8 +7,30 @@
 - Vite 6
 - Tailwind CSS 4 via `@tailwindcss/vite`
 - Lucide React icons
+- No wallet framework packages installed for Phase 2A
 
-The project is currently a frontend-only prototype. It does not include wallet integrations, GenLayer RPC calls, backend services, or smart contracts.
+The project is still a frontend-first prototype. Phase 2A adds real injected wallet connection and wallet-based frontend identity only. Task publishing, acceptance, submission, reward locking, reputation, profiles, and GenLayer evaluation remain mocked.
+
+## Installed Wallet Packages
+
+None.
+
+Phase 2A uses the browser's injected EIP-1193 provider directly through a small typed service. No Wagmi, RainbowKit, Web3Modal, ethers, Viem, or GenLayer SDK package was added because this milestone only requires wallet connect, account reads, chain reads, and chain switch/add-chain requests.
+
+## Network Configuration
+
+Configuration lives in `src/config/genlayer.ts`.
+
+- Network name: GenLayer Bradbury Testnet
+- GenLayer network identifier: `testnetBradbury`
+- Chain ID: `4221`
+- Hex chain ID: `0x107d`
+- Native currency symbol: `GEN`
+- GenLayer RPC: `https://rpc-bradbury.genlayer.com`
+- Chain/EVM RPC: `https://rpc.testnet-chain.genlayer.com`
+- Chain explorer: `https://explorer.testnet-chain.genlayer.com`
+
+No private keys, seed phrases, API keys, or secrets are used by the frontend.
 
 ## Folder Structure
 
@@ -22,8 +44,7 @@ src/
 │   │   ├── FooterNav.tsx
 │   │   └── Navbar.tsx
 │   ├── modals/
-│   │   ├── PublishTaskModal.tsx
-│   │   └── SubmitWorkModal.tsx
+│   │   └── PublishTaskModal.tsx
 │   ├── profile/
 │   │   ├── ProfileTabs.tsx
 │   │   └── ScoreCard.tsx
@@ -31,13 +52,19 @@ src/
 │       ├── StatusBadge.tsx
 │       ├── SubmissionForm.tsx
 │       └── TaskCard.tsx
+├── config/
+│   └── genlayer.ts
 ├── data/
 │   └── mockData.ts
+├── hooks/
+│   └── useWallet.ts
 ├── screens/
 │   ├── LandingScreen.tsx
 │   ├── ProfileScreen.tsx
 │   ├── TaskBoardScreen.tsx
 │   └── TaskDetailScreen.tsx
+├── services/
+│   └── walletService.ts
 ├── types/
 │   └── index.ts
 ├── utils/
@@ -47,18 +74,26 @@ src/
 └── main.tsx
 ```
 
-## Important Components
+## Wallet Architecture
 
-- `src/App.tsx`: Small application coordinator for current page, selected task, wallet simulation, shared task state, modals, forms, and mock workflow handlers.
-- `src/screens/LandingScreen.tsx`: Public landing view and primary entry action.
-- `src/screens/TaskBoardScreen.tsx`: Available task list, connected task list, and publish entry point.
-- `src/screens/TaskDetailScreen.tsx`: Task detail, self-accept prevention, accept/cancel/submit/review mock workflows.
-- `src/screens/ProfileScreen.tsx`: Profile summary, Client Score, Contributor Score, recent receipts, and profile tabs.
-- `src/components/layout/Navbar.tsx`: Header navigation and account dropdown.
-- `src/components/modals/PublishTaskModal.tsx`: Controlled publish task form.
-- `src/components/modals/SubmitWorkModal.tsx`: Controlled global submit form retained for modal workflow support.
-- `src/components/tasks/SubmissionForm.tsx`: Inline submit form used on the task detail screen.
-- `src/components/profile/ProfileTabs.tsx`: Accepted, Published, and Completed task tabs.
+- `src/config/genlayer.ts`: Public Bradbury network constants and the local app-session disconnect key.
+- `src/services/walletService.ts`: Typed EIP-1193 provider access, account parsing, chain parsing, address formatting, case-insensitive address comparison, session disconnect flag helpers, `wallet_switchEthereumChain`, and `wallet_addEthereumChain`.
+- `src/hooks/useWallet.ts`: React wallet state and lifecycle management.
+- `src/App.tsx`: Coordinates wallet state with the existing mocked app identity and task workflows.
+
+The wallet hook exposes:
+
+- `providerAvailable`
+- `address`
+- `shortAddress`
+- `chainId`
+- `isConnected`
+- `isConnecting`
+- `isCorrectNetwork`
+- `error`
+- `connect`
+- `disconnectSession`
+- `switchToBradbury`
 
 ## Existing Pages
 
@@ -69,63 +104,69 @@ Routing is still local React state; React Router has not been added.
 - `detail`
 - `profile`
 
-## Existing UI Components
-
-- Navbar
-- Footer navigation
-- Toast
-- Loading/consensus overlay
-- Task cards
-- Status badges
-- Publish task modal
-- Submit work modal
-- Inline submission form
-- Profile score cards
-- Profile tabs
-
 ## Existing Mock Data
 
-Mock data now lives in `src/data/mockData.ts`.
+Mock task/profile data lives in `src/data/mockData.ts`.
 
 It includes:
 
-- `CURRENT_USER_ADDRESS`
+- `CURRENT_USER_ADDRESS`: internal demo marker used to preserve the existing mock history
 - `INITIAL_USER_PROFILE`
 - `INITIAL_TASKS_LIST`
 
-The active model uses `clientScore` and `contributorScore`. The task shape still keeps existing client address fields so it can later be extended with on-chain IDs, contributor wallets, transaction hashes, and contract status without changing the UI contracts now.
+When a real wallet connects, the app maps demo-owned mock task references from the demo marker to the connected wallet address so the current demo history and self-acceptance behavior continue to work with wallet identity.
 
-## Current Problems
+## Current Behavior
 
-Resolved in this refactor:
+- Connect Wallet uses an injected browser wallet such as MetaMask or another EIP-1193-compatible wallet.
+- The connected address is shown in the navbar.
+- The full connected address is shown in the profile page.
+- The profile remains temporary/mock data for now.
+- The app detects whether the wallet is on Bradbury.
+- Wrong-network state keeps the wallet connected and shows a Switch Network action.
+- Switching uses `wallet_switchEthereumChain`.
+- If Bradbury is missing, the app requests `wallet_addEthereumChain`, then retries switching.
+- Account and chain changes update the UI.
+- If the wallet returns no accounts, the app disconnects locally for the session.
+- Disconnect clears Receipt's local connected state only; it does not claim to revoke wallet permissions.
+- Already-authorized wallets restore connected UI on refresh unless the app-level disconnect flag is set.
 
-- Split the oversized `src/App.tsx` into screens, components, data, types, and helpers.
-- Removed unused `metadata.json`; it was AI Studio metadata and was not referenced anywhere in the application or package scripts.
-- Moved active domain types into `src/types/index.ts`.
-- Moved active mock data into `src/data/mockData.ts`.
-- Moved pure task filtering/status helpers into `src/utils/taskHelpers.ts`.
-- Normalized visible score labels to Client Score and Contributor Score.
-- Kept the local mock navigation model and did not add React Router.
+## Current Problems And Limitations
 
-Remaining known issues:
-
+- No task contract calls exist yet.
+- No onchain profile exists yet.
+- No onchain publishing, accepting, submitting, reward locking, reputation, or GenLayer evaluation exists yet.
 - There is no ESLint configuration yet; `npm run lint` currently runs `tsc --noEmit`.
 - There are no automated UI tests yet.
-- Some mock workflow copy still references simulated network/escrow behavior, but no blockchain code exists.
-- `SubmitWorkModal` is retained for the existing global modal path, though the visible flow primarily uses the inline detail form.
+- Browser wallet flows require manual testing in a browser with an injected wallet.
+
+## Manual Wallet Test Checklist
+
+1. No wallet installed: click Connect Wallet and confirm the app shows "No compatible browser wallet was detected."
+2. Connection approved: approve the wallet request and confirm the board opens with the shortened address in the navbar.
+3. Connection rejected: reject the wallet popup and confirm a friendly cancellation message appears.
+4. Already-authorized refresh: refresh after connecting and confirm the connected UI restores without a new popup.
+5. Wrong network: connect on a different chain and confirm the address remains visible plus Switch Network appears.
+6. Successful switch to Bradbury: click Switch Network and approve the request.
+7. Rejected network switch: reject the switch request and confirm the app remains connected with a friendly message.
+8. Missing Bradbury chain: use a wallet without Bradbury configured and confirm the add-chain request appears.
+9. Account changed: switch accounts in the wallet and confirm the navbar/profile address updates.
+10. Wallet locked/no accounts: lock the wallet or remove all accounts and confirm Receipt locally disconnects.
+11. Application-level disconnect: click Disconnect Wallet and confirm the UI returns to disconnected state without claiming permissions were revoked.
+12. Reconnect: click Connect Wallet again and confirm the app reconnects normally.
 
 ## Recommendations
 
-- Add ESLint and formatting before adding wallet or GenLayer integration.
-- Add smoke tests for the landing, task board, task detail, publish, accept, cancel, submit, and profile flows.
-- Keep Web3 integration behind service modules and hooks, not directly inside screen components.
+- Add ESLint and formatting before adding contract code.
+- Add smoke tests for existing mocked flows.
+- Add wallet-provider test doubles for automated state testing.
+- Keep GenLayer contract/RPC calls behind service modules and hooks.
 - Add React Router only when real URLs are needed.
-- Keep task/client/contributor terminology stable before connecting contract data.
 
 ## Next Development Steps
 
-1. Confirm the refactored frontend matches the original UI and mock workflows.
-2. Add linting and smoke-test coverage.
-3. Define the wallet and GenLayer service boundaries.
-4. Add environment variable names for testnet endpoints.
-5. Implement wallet and GenLayer functionality in a separate integration step.
+1. Manually test injected wallet behavior against the checklist above.
+2. Add automated unit tests for `walletService` and `useWallet`.
+3. Define the future GenLayer contract/service boundary.
+4. Implement onchain profiles in a separate milestone.
+5. Implement onchain task contracts in a separate milestone.

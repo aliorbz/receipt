@@ -1,5 +1,6 @@
 import { Clock } from 'lucide-react';
 import type { Task } from '../../types';
+import { addressesEqual } from '../../services/walletService';
 import { StatusBadge } from './StatusBadge';
 
 interface TaskCardProps {
@@ -11,7 +12,7 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task, variant, currentUserAddress, onViewTask }: TaskCardProps) {
-  const isSelfAccepted = task.acceptedBy === currentUserAddress;
+  const isSelfAccepted = addressesEqual(task.acceptedBy, currentUserAddress);
 
   if (variant === 'available') {
     return (
