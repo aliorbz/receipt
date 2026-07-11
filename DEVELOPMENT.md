@@ -13,107 +13,119 @@ The project is currently a frontend-only prototype. It does not include wallet i
 ## Folder Structure
 
 ```text
-.
-├── src/
-│   ├── App.tsx
-│   ├── index.css
-│   └── main.tsx
-├── .env.example
-├── .gitignore
-├── DEVELOPMENT.md
-├── index.html
-├── metadata.json
-├── package.json
-├── package-lock.json
-├── README.md
-├── tsconfig.json
-└── vite.config.ts
+src/
+├── components/
+│   ├── feedback/
+│   │   ├── LoadingOverlay.tsx
+│   │   └── Toast.tsx
+│   ├── layout/
+│   │   ├── FooterNav.tsx
+│   │   └── Navbar.tsx
+│   ├── modals/
+│   │   ├── PublishTaskModal.tsx
+│   │   └── SubmitWorkModal.tsx
+│   ├── profile/
+│   │   ├── ProfileTabs.tsx
+│   │   └── ScoreCard.tsx
+│   └── tasks/
+│       ├── StatusBadge.tsx
+│       ├── SubmissionForm.tsx
+│       └── TaskCard.tsx
+├── data/
+│   └── mockData.ts
+├── screens/
+│   ├── LandingScreen.tsx
+│   ├── ProfileScreen.tsx
+│   ├── TaskBoardScreen.tsx
+│   └── TaskDetailScreen.tsx
+├── types/
+│   └── index.ts
+├── utils/
+│   └── taskHelpers.ts
+├── App.tsx
+├── index.css
+└── main.tsx
 ```
 
 ## Important Components
 
-- `src/main.tsx`: React entry point that mounts the app into `#root`.
-- `src/App.tsx`: Main application shell, route state, mock task data, wallet simulation state, forms, modals, toast feedback, and all active UI screens.
-- `ProfileTabs` in `src/App.tsx`: Local reusable tab component used on the profile/workspace screen.
-- `src/index.css`: Tailwind import, font imports, theme tokens, scrollbar styling, and small animation helpers.
+- `src/App.tsx`: Small application coordinator for current page, selected task, wallet simulation, shared task state, modals, forms, and mock workflow handlers.
+- `src/screens/LandingScreen.tsx`: Public landing view and primary entry action.
+- `src/screens/TaskBoardScreen.tsx`: Available task list, connected task list, and publish entry point.
+- `src/screens/TaskDetailScreen.tsx`: Task detail, self-accept prevention, accept/cancel/submit/review mock workflows.
+- `src/screens/ProfileScreen.tsx`: Profile summary, Client Score, Contributor Score, recent receipts, and profile tabs.
+- `src/components/layout/Navbar.tsx`: Header navigation and account dropdown.
+- `src/components/modals/PublishTaskModal.tsx`: Controlled publish task form.
+- `src/components/modals/SubmitWorkModal.tsx`: Controlled global submit form retained for modal workflow support.
+- `src/components/tasks/SubmissionForm.tsx`: Inline submit form used on the task detail screen.
+- `src/components/profile/ProfileTabs.tsx`: Accepted, Published, and Completed task tabs.
 
 ## Existing Pages
 
-Routing is handled with local React state in `App.tsx`; there is no router library yet.
+Routing is still local React state; React Router has not been added.
 
-- `landing`: Public landing screen and connect wallet entry point.
-- `board`: Task marketplace board with available work and workspace summary.
-- `detail`: Task detail, submission, cancellation, and review actions.
-- `profile`: User profile and task workspace tabs.
+- `landing`
+- `board`
+- `detail`
+- `profile`
 
 ## Existing UI Components
 
-The active reusable UI is currently embedded in `App.tsx`.
-
-- Top navigation/header
-- Toast notification banner
-- Loading/consensus simulation overlay
-- Landing sections
-- Task board cards
-- Task detail panels
+- Navbar
+- Footer navigation
+- Toast
+- Loading/consensus overlay
+- Task cards
+- Status badges
 - Publish task modal
 - Submit work modal
-- Profile summary
-- `ProfileTabs`
+- Inline submission form
+- Profile score cards
+- Profile tabs
 
 ## Existing Mock Data
 
-Mock data lives in `INITIAL_TASKS_LIST` inside `src/App.tsx`.
+Mock data now lives in `src/data/mockData.ts`.
 
 It includes:
 
-- Available tasks
-- Accepted tasks
-- Submitted tasks waiting for publisher review
-- Completed tasks
-- Cancelled/revision-capable workflow states
-- Mock publisher names, scores, wallet addresses, deadlines, rewards, and submissions
+- `CURRENT_USER_ADDRESS`
+- `INITIAL_USER_PROFILE`
+- `INITIAL_TASKS_LIST`
 
-The current user profile and connected wallet address are also mocked in `src/App.tsx`.
+The active model uses `clientScore` and `contributorScore`. The task shape still keeps existing client address fields so it can later be extended with on-chain IDs, contributor wallets, transaction hashes, and contract status without changing the UI contracts now.
 
 ## Current Problems
 
-Resolved during this cleanup:
+Resolved in this refactor:
 
-- Removed unused AI Studio scaffold components under `src/components`.
-- Removed unused `src/types.ts` and `src/mockData.ts`, which represented a separate inactive data model.
-- Removed unused AI/server dependencies: `@google/genai`, `express`, `dotenv`, `motion`, `tsx`, duplicate `vite`, and Express types.
-- Removed AI Studio metadata capability for server-side Gemini.
-- Replaced the default HTML title with `Receipt`.
-- Cleaned `.env.example` so it no longer suggests Gemini or hosted AI Studio variables.
-- Made the `clean` script work cross-platform.
-- Added `.npm-cache/` to `.gitignore` because local install verification used a project-local npm cache.
-- Cleaned garbled AI Studio comments in `vite.config.ts`.
+- Split the oversized `src/App.tsx` into screens, components, data, types, and helpers.
+- Removed unused `metadata.json`; it was AI Studio metadata and was not referenced anywhere in the application or package scripts.
+- Moved active domain types into `src/types/index.ts`.
+- Moved active mock data into `src/data/mockData.ts`.
+- Moved pure task filtering/status helpers into `src/utils/taskHelpers.ts`.
+- Normalized visible score labels to Client Score and Contributor Score.
+- Kept the local mock navigation model and did not add React Router.
 
 Remaining known issues:
 
-- `App.tsx` is very large and contains data, state, actions, pages, and UI in one file.
-- Mock workflow copy mentions simulated on-chain and consensus activity, but there is no blockchain implementation yet.
-- Date values are static mock data.
-- No automated UI tests are present.
-- No ESLint setup is present; `npm run lint` currently runs TypeScript only.
+- There is no ESLint configuration yet; `npm run lint` currently runs `tsc --noEmit`.
+- There are no automated UI tests yet.
+- Some mock workflow copy still references simulated network/escrow behavior, but no blockchain code exists.
+- `SubmitWorkModal` is retained for the existing global modal path, though the visible flow primarily uses the inline detail form.
 
 ## Recommendations
 
-- Keep the current UI stable while extracting code in small steps.
-- Move domain types into `src/types.ts` after the final frontend data model is agreed.
-- Move mock data into `src/mockData.ts` using the active `Task` shape from `App.tsx`.
-- Split `App.tsx` into route-level screen components only after behavior is documented and covered.
-- Add ESLint and formatting rules before the codebase grows.
-- Add lightweight smoke tests for page rendering and the main mock workflows.
-- Introduce real routing later only if route URLs are needed.
-- Add Web3/GenLayer integration behind service modules, not directly inside UI components.
+- Add ESLint and formatting before adding wallet or GenLayer integration.
+- Add smoke tests for the landing, task board, task detail, publish, accept, cancel, submit, and profile flows.
+- Keep Web3 integration behind service modules and hooks, not directly inside screen components.
+- Add React Router only when real URLs are needed.
+- Keep task/client/contributor terminology stable before connecting contract data.
 
 ## Next Development Steps
 
-1. Confirm the current frontend flow and copy are the desired product baseline.
-2. Extract active types and mock data from `App.tsx` without changing behavior.
-3. Extract screen components from `App.tsx` while preserving markup and styling.
-4. Add ESLint, formatting, and basic smoke tests.
-5. Define the GenLayer integration boundary and environment variables.
-6. Implement wallet and testnet interactions only after the frontend structure is stable.
+1. Confirm the refactored frontend matches the original UI and mock workflows.
+2. Add linting and smoke-test coverage.
+3. Define the wallet and GenLayer service boundaries.
+4. Add environment variable names for testnet endpoints.
+5. Implement wallet and GenLayer functionality in a separate integration step.
