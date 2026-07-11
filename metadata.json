@@ -1,6 +1,5 @@
 {
   "name": "RECEIPT",
   "description": "A decentralized task and reputation platform built on GenLayer where users publish, accept, submit work, and build verified reputation through AI-evaluated commitments.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "requestFramePermissions": []
 }
