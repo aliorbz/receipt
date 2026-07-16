@@ -9,3 +9,25 @@ coverage/
 .env
 .env.local
 !.env.example
+
+# Python / GenLayer local development
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.genlayer/
+.gltest/
+test-results/
+htmlcov/
+
+# Local keys and sensitive deployment artifacts
+*.pem
+*.key
+*.seed
+*.mnemonic
+deployments/
+scripts/deploy/.env
+scripts/deploy/.env.*

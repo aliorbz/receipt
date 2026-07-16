@@ -7,19 +7,55 @@
 - Vite 6
 - Tailwind CSS 4 via `@tailwindcss/vite`
 - Lucide React icons
-- No wallet framework packages installed for Phase 2A
+- Native injected EIP-1193 wallet integration
+- Native GenLayer Intelligent Contract in Python for Phase 3A
 
-The project is still a frontend-first prototype. Phase 2A adds real injected wallet connection and wallet-based frontend identity only. Task publishing, acceptance, submission, reward locking, reputation, profiles, and GenLayer evaluation remain mocked.
+The project remains frontend-first for the running UI. Phase 3A adds the contract development workspace and deterministic contract foundation only. The frontend is not connected to the contract yet.
 
 ## Installed Wallet Packages
 
 None.
 
-Phase 2A uses the browser's injected EIP-1193 provider directly through a small typed service. No Wagmi, RainbowKit, Web3Modal, ethers, Viem, or GenLayer SDK package was added because this milestone only requires wallet connect, account reads, chain reads, and chain switch/add-chain requests.
+Phase 2A uses the browser's injected EIP-1193 provider directly through a small typed service. No Wagmi, RainbowKit, Web3Modal, ethers, Viem, or GenLayer SDK package was added because the wallet milestone only required wallet connect, account reads, chain reads, and chain switch/add-chain requests.
+
+## Contract Development Dependencies
+
+Python contract dependencies are listed in `requirements.txt`:
+
+```bash
+pip install -r requirements.txt
+```
+
+Required tools from current GenLayer documentation:
+
+- Python 3.12+
+- `genlayer-test`
+- `genvm-linter`
+- `pytest`
+- Optional local Studio tooling: `npm install -g genlayer`
+- Docker 26+ only if running local GenLayer Studio
+
+The Direct Mode tests pin `sdk_version="v0.2.12"` because `genlayer-test 0.29.2` otherwise asks GitHub for the latest GenVM release. As of this setup, latest is `v0.3.0-rc7`, which does not publish `genvm-universal.tar.xz`; `v0.2.12` does.
+
+`tests/contract/conftest.py` contains two Direct Mode harness fixes:
+
+- On Windows, it avoids immediately unlinking the temporary stdin file while the process still has it open.
+- It handles Direct Mode `EthSend` calls by crediting the in-memory VM balance map so native GEN transfer assertions can run locally.
+
+Useful commands once Python tooling is installed:
+
+```bash
+genvm-lint check contracts/receipt.py
+pytest tests/contract -v
+npm run lint
+npm run build
+```
+
+Local verification in this workspace could not run the Python contract tooling because only the Windows Store `python.exe` shim is present and `pip`, `pytest`, `genvm-lint`, and `genlayer` are not available on PATH.
 
 ## Network Configuration
 
-Configuration lives in `src/config/genlayer.ts`.
+Frontend wallet configuration lives in `src/config/genlayer.ts`.
 
 - Network name: GenLayer Bradbury Testnet
 - GenLayer network identifier: `testnetBradbury`
@@ -30,49 +66,91 @@ Configuration lives in `src/config/genlayer.ts`.
 - Chain/EVM RPC: `https://rpc.testnet-chain.genlayer.com`
 - Chain explorer: `https://explorer.testnet-chain.genlayer.com`
 
-No private keys, seed phrases, API keys, or secrets are used by the frontend.
+No private keys, seed phrases, API keys, or secrets are used by the frontend. Deployment keys must never be committed.
 
 ## Folder Structure
 
 ```text
+contracts/
+  receipt.py
+docs/
+  CONTRACT_SPEC.md
+scripts/
+  deploy/
+    README.md
 src/
-├── components/
-│   ├── feedback/
-│   │   ├── LoadingOverlay.tsx
-│   │   └── Toast.tsx
-│   ├── layout/
-│   │   ├── FooterNav.tsx
-│   │   └── Navbar.tsx
-│   ├── modals/
-│   │   └── PublishTaskModal.tsx
-│   ├── profile/
-│   │   ├── ProfileTabs.tsx
-│   │   └── ScoreCard.tsx
-│   └── tasks/
-│       ├── StatusBadge.tsx
-│       ├── SubmissionForm.tsx
-│       └── TaskCard.tsx
-├── config/
-│   └── genlayer.ts
-├── data/
-│   └── mockData.ts
-├── hooks/
-│   └── useWallet.ts
-├── screens/
-│   ├── LandingScreen.tsx
-│   ├── ProfileScreen.tsx
-│   ├── TaskBoardScreen.tsx
-│   └── TaskDetailScreen.tsx
-├── services/
-│   └── walletService.ts
-├── types/
-│   └── index.ts
-├── utils/
-│   └── taskHelpers.ts
-├── App.tsx
-├── index.css
-└── main.tsx
+  components/
+    feedback/
+    layout/
+    modals/
+    profile/
+    tasks/
+  config/
+    genlayer.ts
+  data/
+    mockData.ts
+  hooks/
+    useWallet.ts
+  screens/
+    LandingScreen.tsx
+    ProfileScreen.tsx
+    TaskBoardScreen.tsx
+    TaskDetailScreen.tsx
+  services/
+    walletService.ts
+  types/
+    index.ts
+  utils/
+    taskHelpers.ts
+  App.tsx
+  index.css
+  main.tsx
+tests/
+  contract/
+    test_receipt_direct.py
 ```
+
+## Contract Workspace
+
+- `contracts/receipt.py`: Phase 3A deterministic native GenLayer Intelligent Contract.
+- `tests/contract/test_receipt_direct.py`: direct-mode pytest coverage for the lifecycle rules.
+- `docs/CONTRACT_SPEC.md`: source of truth for contract architecture, identity, statuses, storage, invariants, and future frontend service boundary.
+- `scripts/deploy/README.md`: placeholder documenting that deployment is out of scope for Phase 3A.
+- `requirements.txt`: Python tooling dependencies.
+
+The contract intentionally does not use Solidity and does not introduce a separate EVM escrow contract.
+
+## Contract Methods
+
+Write methods:
+
+- `create_task(reward_amount, deadline, category, metadata_ref)`: payable; creates an open task and locks native GEN.
+- `accept_task(task_id)`: assigns a contributor to an open task.
+- `cancel_accepted_task(task_id)`: assigned contributor cancels and returns the reward to the client.
+- `submit_task(task_id, submission_ref)`: assigned contributor submits off-chain evidence.
+- `complete_task(task_id)`: client completes the submitted task and releases the reward to the contributor.
+
+Read methods:
+
+- `get_task(task_id)`
+- `get_total_task_count()`
+- `get_profile(wallet)`
+- `get_published_task_ids(wallet, offset, limit)`
+- `get_accepted_task_ids(wallet, offset, limit)`
+- `get_completed_task_ids(wallet, offset, limit)`
+- `get_locked_rewards()`
+
+## Persistent Contract Storage
+
+- `next_task_id: u256`
+- `locked_rewards: u256`
+- `tasks: TreeMap[u256, Task]`
+- `profiles: TreeMap[Address, Profile]`
+- `published_task_ids: TreeMap[Address, DynArray[u256]]`
+- `accepted_task_ids: TreeMap[Address, DynArray[u256]]`
+- `completed_task_ids: TreeMap[Address, DynArray[u256]]`
+
+Task metadata and submission evidence remain off-chain references.
 
 ## Wallet Architecture
 
@@ -133,12 +211,15 @@ When a real wallet connects, the app maps demo-owned mock task references from t
 
 ## Current Problems And Limitations
 
-- No task contract calls exist yet.
-- No onchain profile exists yet.
-- No onchain publishing, accepting, submitting, reward locking, reputation, or GenLayer evaluation exists yet.
+- The frontend is not integrated with `contracts/receipt.py` yet.
+- The contract is not deployed to Bradbury.
+- GenLayer AI evaluation is not implemented.
+- Reputation score changes are not implemented.
+- No onchain username, avatar, or bio exists.
 - There is no ESLint configuration yet; `npm run lint` currently runs `tsc --noEmit`.
 - There are no automated UI tests yet.
 - Browser wallet flows require manual testing in a browser with an injected wallet.
+- Contract tests require local Python 3.12+ and GenLayer testing tools.
 
 ## Manual Wallet Test Checklist
 
@@ -155,18 +236,47 @@ When a real wallet connects, the app maps demo-owned mock task references from t
 11. Application-level disconnect: click Disconnect Wallet and confirm the UI returns to disconnected state without claiming permissions were revoked.
 12. Reconnect: click Connect Wallet again and confirm the app reconnects normally.
 
+## Contract Test Checklist
+
+`tests/contract/test_receipt_direct.py` covers:
+
+- valid task creation with attached GEN
+- zero reward rejection
+- mismatched declared and attached reward rejection
+- past deadline rejection
+- open task acceptance
+- self-acceptance prevention
+- second contributor prevention
+- deadline-expired acceptance prevention
+- assigned contributor submission
+- unauthorized submission prevention
+- contributor cancellation and refund behavior
+- unauthorized cancellation prevention
+- client completion
+- unauthorized completion prevention
+- contributor payout behavior
+- double completion prevention
+- submission after cancellation prevention
+- mutation after completion prevention
+- profile counter updates
+- read method task ID/state results
+
+The current official direct-mode docs do not document a payable value cheatcode, so the test helper skips payable-dependent tests when the installed `direct_vm` does not expose one. If that remains true locally, port value-transfer assertions to Studio mode.
+
 ## Recommendations
 
-- Add ESLint and formatting before adding contract code.
-- Add smoke tests for existing mocked flows.
-- Add wallet-provider test doubles for automated state testing.
-- Keep GenLayer contract/RPC calls behind service modules and hooks.
-- Add React Router only when real URLs are needed.
+- Install Python 3.12+ and GenLayer contract tooling before the next contract milestone.
+- Run the GenVM linter before changing contract storage or method signatures.
+- Keep frontend contract calls behind a dedicated service layer.
+- Add Studio-mode tests before deploying to Bradbury.
+- Add ESLint and formatting before broad frontend changes.
+- Add smoke tests for existing mocked UI flows.
 
 ## Next Development Steps
 
-1. Manually test injected wallet behavior against the checklist above.
-2. Add automated unit tests for `walletService` and `useWallet`.
-3. Define the future GenLayer contract/service boundary.
-4. Implement onchain profiles in a separate milestone.
-5. Implement onchain task contracts in a separate milestone.
+1. Install and verify Python 3.12+ contract tooling.
+2. Run `genvm-lint check contracts/receipt.py`.
+3. Run `pytest tests/contract -v`.
+4. Address any official tooling feedback before deployment work.
+5. Add a frontend contract service in a later milestone.
+6. Deploy to Bradbury only after local and Studio-mode contract tests pass.
